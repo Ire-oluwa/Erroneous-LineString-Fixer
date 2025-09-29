@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import LineString
@@ -6,6 +7,9 @@ import contextily as ctx
 from pyproj import Geod
 import networkx as nx
 import osmnx as ox
+import leafmap.foliumap as leafmap
+
+api_key = os.getenv("maptiler_api_key")
 
 def wrangle_data(data):
     """
@@ -70,21 +74,22 @@ def convert_to_gdf_and_plot(data):
     :param data: cleaned dataset from wrangle_data()
     :return: geospatial dataset
     """
-
-    gdf = gpd.GeoDataFrame(data, crs="EPSG:4326")
-    gdf = gdf.to_crs(crs="EPSG:32631")
-
-    ax = gdf.plot(figsize=(10, 8), color="blue", linewidth=1)
-    print("Converting coordinate reference system to UTM")
-    gdf = gdf.to_crs(crs="EPSG:32631")
-    ax = gdf.plot(ax=ax, figsize=(10, 8), color="blue", linewidth=1)
-    ctx.add_basemap(ax, crs=gdf.crs)
-
-    plt.title("LineStrings with Basemap")
-    plt.show()
-    print("There are a few problems with the  lines, they have to be corrected")
-
-    return gdf
+    print("Plotting the roads")
+    gdf = gpd.GeoDataFrame(data, geometry="geometry", crs="EPSG:4326")
+    m = leafmap.Map(center=[3.3984, 6.4509], zoom=3, style="streets")
+    style = {
+        "color": "red",  # line/border color
+        "weight": 2,  # line width
+        "fillColor": "#3388ff",  # fill color (for polygons)
+        "fillOpacity": 0.8,
+    }
+    # Add GDF with tooltip
+    tooltip_fields = [col for col in ["road_street_name", "LOCAL GOVERNMENT", "distance(m)"] if col in gdf.columns]
+    m.add_gdf(
+        gdf, layer_type="fill", layer_name="Roads", style=style, tooltip_fields=tooltip_fields, info_mode="on_hover"
+    )
+    m.zoom_to_gdf(gdf)
+    return m
 
 def load_graph(place="Lagos, Nigeria", network_type="all"):
     """
@@ -171,14 +176,22 @@ def plot_corrected_lines(data):
     :param data: fixed data from wrangle_data()
     :return:
     """
-    gdf = gpd.GeoDataFrame(data, geometry="geometry", crs="EPSG:4326")
-    fig, ax = plt.subplots(figsize=(15, 15))
-    gdf.plot(ax=ax, color="blue", linewidth=2, label="Coverage lines")
-    ctx.add_basemap(ax, crs=gdf.crs) # , source=ctx.providers.OpenStreetMap.Mapnik)
 
-    plt.legend()
-    plt.title("Fiber Coverage over OSM Basemap", fontsize=14)
-    plt.show();
+    gdf = gpd.GeoDataFrame(data, geometry="geometry", crs="EPSG:4326")
+    m = leafmap.Map(center=[3.3984, 6.4509], zoom=3, style="streets")
+    style = {
+        "color": "red",  # line/border color
+        "weight": 2,  # line width
+        "fillColor": "#3388ff",  # fill color (for polygons)
+        "fillOpacity": 0.8,
+    }
+    # Add GDF with tooltip
+    tooltip_fields = [col for col in ["road_street_name", "LOCAL GOVERNMENT", "distance(m)"] if col in gdf.columns]
+    m.add_gdf(
+        gdf, layer_type="fill", layer_name="Roads", style=style, tooltip_fields=tooltip_fields, info_mode="on_hover"
+    )
+    m.zoom_to_gdf(gdf)
+    return m
 
 
 
