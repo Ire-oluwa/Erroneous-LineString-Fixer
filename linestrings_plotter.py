@@ -2,14 +2,20 @@ import os
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import LineString
-import  matplotlib.pyplot as plt
-import contextily as ctx
+# import  matplotlib.pyplot as plt
+# import contextily as ctx
 from pyproj import Geod
 import networkx as nx
 import osmnx as ox
 import leafmap.foliumap as leafmap
 
 api_key = os.getenv("maptiler_api_key")
+style = {
+        "color": "red",  # line/border color
+        "weight": 2,  # line width
+        "fillColor": "#3388ff",  # fill color (for polygons)
+        "fillOpacity": 0.8,
+    }
 
 def wrangle_data(data):
     """
@@ -75,20 +81,16 @@ def convert_to_gdf_and_plot(data):
     :return: geospatial dataset
     """
     print("Plotting the roads")
-    gdf = gpd.GeoDataFrame(data, geometry="geometry", crs="EPSG:4326")
+    gdf_bad_lines = gpd.GeoDataFrame(data, geometry="geometry", crs="EPSG:4326")
     m = leafmap.Map(center=[3.3984, 6.4509], zoom=3, style="streets")
-    style = {
-        "color": "red",  # line/border color
-        "weight": 2,  # line width
-        "fillColor": "#3388ff",  # fill color (for polygons)
-        "fillOpacity": 0.8,
-    }
+
     # Add GDF with tooltip
-    tooltip_fields = [col for col in ["road_street_name", "LOCAL GOVERNMENT", "distance(m)"] if col in gdf.columns]
+    tooltip_fields = [col for col in ["road_street_name", "LOCAL GOVERNMENT", "distance(m)"] if col in gdf_bad_lines.columns]
     m.add_gdf(
-        gdf, layer_type="fill", layer_name="Roads", style=style, tooltip_fields=tooltip_fields, info_mode="on_hover"
+        gdf_bad_lines, layer_type="fill", layer_name="Roads",
+        style=style, tooltip=tooltip_fields, info_mode="on_hover"
     )
-    m.zoom_to_gdf(gdf)
+    m.zoom_to_gdf(gdf_bad_lines)
     return m
 
 def load_graph(place="Lagos, Nigeria", network_type="all"):
@@ -174,21 +176,15 @@ def plot_corrected_lines(data):
     """
     Plot the corrected geometries
     :param data: fixed data from wrangle_data()
-    :return:
+    :return: a plot of the loines
     """
 
     gdf = gpd.GeoDataFrame(data, geometry="geometry", crs="EPSG:4326")
-    m = leafmap.Map(center=[3.3984, 6.4509], zoom=3, style="streets")
-    style = {
-        "color": "red",  # line/border color
-        "weight": 2,  # line width
-        "fillColor": "#3388ff",  # fill color (for polygons)
-        "fillOpacity": 0.8,
-    }
+    m = leafmap.Map(center=[3.3984, 6.4509], zoom=4, style="streets")
     # Add GDF with tooltip
     tooltip_fields = [col for col in ["road_street_name", "LOCAL GOVERNMENT", "distance(m)"] if col in gdf.columns]
     m.add_gdf(
-        gdf, layer_type="fill", layer_name="Roads", style=style, tooltip_fields=tooltip_fields, info_mode="on_hover"
+        gdf, layer_type="fill", layer_name="Roads", style=style, tooltip=tooltip_fields, info_mode="on_hover"
     )
     m.zoom_to_gdf(gdf)
     return m
