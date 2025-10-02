@@ -1,15 +1,70 @@
 import pandas as pd
 import geopandas as gpd
 import fiona
+import time
+import requests
 import leafmap.foliumap as leafmap
 
-def filter_non_intersecting_lines(first_data_filepath, second_data_filepath):
+# ================= REVERSE GEOCODING FUNCTIONS =================
+def reverse_geocode(lat, lon, api_key):
+    """
+    Reverse geocode coordinates using Google Maps API.
+    Returns the formatted address, or None if not found.
+    """
+    try:
+        url = f"https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lon}&key={api_key}"
+        response = requests.get(url)
+        result = response.json()
+
+        if result["status"] == "OK" and len(result["results"]) > 0:
+            address = result["results"][0]["formatted_address"]
+            print(f"Address found: {address}")
+            return address
+        else:
+            print(f"No address found for {lat}, {lon}")
+            return None
+    except Exception as e:
+        print(f"Error reverse geocoding ({lat}, {lon}): {e}")
+        return None
+
+
+def batch_reverse_geocode(gdf, api_key, batch_size=50, delay=2):
+    """
+    For each LineString in the GeoDataFrame, compute centroid,
+    reverse geocode it with Google API, and add results as new columns.
+    """
+    # Always reproject to WGS84 for Google API
+    if gdf.crs != "EPSG:4326":
+        gdf = gdf.to_crs(epsg=4326)
+
+    gdf["centroid"] = gdf.geometry.centroid
+    gdf["lat"] = gdf.centroid.y
+    gdf["lon"] = gdf.centroid.x
+
+    addresses = []
+
+    for i, row in gdf.iterrows():
+        lat, lon = row["lat"], row["lon"]
+        address = reverse_geocode(lat, lon, api_key)
+        addresses.append(address)
+
+        # Pause every batch to avoid quota issues
+        if (i + 1) % batch_size == 0:
+            print(f"Processed {i+1} rows, pausing {delay}s...")
+            time.sleep(delay)
+
+    gdf["address"] = addresses
+    return gdf
+
+# ================================== MAIN FUNCTION ==================================
+def filter_non_intersecting_lines(first_data_filepath, second_data_filepath, api_key):
     """
     This generates the difference between two lines, the first being less complete than the second
     It checks for the lines that intersects and takes them out leaving the second lines that do not intersect with the first
     The difference is also plotted
     :param first_data_filepath: fewer linestrings
     :param second_data_filepath: the data with a lot of linestrings
+    :param api_key: google api key
     :return: the difference between the 2 linestrings
     """
 
@@ -43,39 +98,26 @@ def filter_non_intersecting_lines(first_data_filepath, second_data_filepath):
     gdf_diff = gdf_diff.to_crs(epsg=32631)
     gdf_diff["distance_m"] = gdf_diff.geometry.length
 
+    # ===== Reverse geocode centroids of non-intersecting lines =====
+    gdf_diff = batch_reverse_geocode(gdf_diff, api_key)
+
     # ================== PLOT FINAL DIFFERENCE ==================
     # Create a map centered roughly on your data
     m = leafmap.Map(center=[6.45, 3.39], zoom=9, style="streets")
 
     # Style for non-right-of-way lines
-    style_non_right = {
-        "color": "blue",
-        "weight": 2,
-    }
+    style_non_right = {"color": "blue", "weight": 2}
 
     # Style for right-of-way lines
-    style_right = {
-        "color": "red",
-        "weight": 2,
-    }
+    style_right = {"color": "red", "weight": 2}
 
     # Add the GeoDataFrames
-    m.add_gdf(
-        gdf_diff,
-        layer_type="line",
-        layer_name="Non-Right-of-Way Roads",
-        style=style_non_right,
-    )
+    m.add_gdf(gdf_diff, layer_type="line", layer_name="Non-Right-of-Way Roads", style=style_non_right)
 
     # Add right-of-way roads
-    m.add_gdf(
-        gdf_1,
-        layer_type="line",
-        layer_name="Right-of-Way Roads",
-        style=style_right,
-    )
+    m.add_gdf(gdf_1, layer_type="line", layer_name="Right-of-Way Roads", style=style_right)
 
     # Zoom to fit both datasets
     m.zoom_to_gdf(pd.concat([gdf_diff, gdf_1]))
 
-    return  gdf_diff, m
+    return {"gdf": gdf_diff, "map": m}
