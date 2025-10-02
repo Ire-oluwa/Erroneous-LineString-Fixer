@@ -133,9 +133,8 @@ def filter_non_intersecting_lines(first_data_filepath, second_data_filepath, api
     # Extract street name
     gdf_diff["name"] = gdf_diff["name"].fillna(gdf_diff["address"].apply(extract_street_name))
 
-    # drop unncessary columns
-    # drop multiple non-geometry columns safely
-    cols_to_drop = ["centroid", "address"]  # replace with your unwanted columns
+    # ================================ drop unnecessary columns ====================================
+    cols_to_drop = ["ref", "rid", "count", "centroid"]  # replace with your unwanted columns
     gdf_diff = gdf_diff.drop(columns=cols_to_drop, errors="ignore")
 
     # ================== PLOT FINAL DIFFERENCE ==================
