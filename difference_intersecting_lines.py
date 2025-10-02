@@ -2,6 +2,7 @@ import pandas as pd
 import geopandas as gpd
 import fiona
 import time
+import re
 import requests
 import leafmap.foliumap as leafmap
 
@@ -56,6 +57,34 @@ def batch_reverse_geocode(gdf, api_key, batch_size=50, delay=2):
     gdf["address"] = addresses
     return gdf
 
+# ================================== Extract Street Names ====================================
+def extract_street_name(address: str) -> str:
+    """
+    Extract street name from a Google Maps formatted address.
+    Examples:
+        "9 Abudu Oladejo St, Papa Ashafa, Lagos 102212, Lagos, Nigeria"
+            -> "Abudu Oladejo St"
+        "13b Peace Cl, Ifako Agege, Lagos 101232, Lagos, Nigeria"
+            -> "Peace Cl"
+        "11A Ajayi Rd, Ojodu, Ikeja 300001, Lagos, Nigeria"
+            -> "Ajayi Rd"
+        "Harmony Estate, 29 Kolapo Boluwade Cres, Ifako-Ijaiye, Lagos 101232, Lagos, Nigeria"
+            -> "Kolapo Boluwade Cres"   # (if estate name comes first, we still extract street)
+    """
+
+    if not isinstance(address, str) or not address.strip():
+        return ""
+
+    # Split by comma -> take first chunk (sometimes has house number + street)
+    parts = address.split(",")
+    first_part = parts[0].strip()
+
+    # Remove leading house numbers or unit identifiers
+    cleaned = re.sub(r"^\s*\d+[A-Za-z\-]*\s+", "", first_part)
+
+    # If cleaned result is empty (rare), just return the first part
+    return cleaned if cleaned else first_part
+
 # ================================== MAIN FUNCTION ==================================
 def filter_non_intersecting_lines(first_data_filepath, second_data_filepath, api_key):
     """
@@ -100,6 +129,9 @@ def filter_non_intersecting_lines(first_data_filepath, second_data_filepath, api
 
     # ===== Reverse geocode centroids of non-intersecting lines =====
     gdf_diff = batch_reverse_geocode(gdf_diff, api_key)
+
+    # Extract street name
+    gdf_diff["name"] = gdf_diff["name"].fillna(gdf_diff["address"].apply(extract_street_name))
 
     # ================== PLOT FINAL DIFFERENCE ==================
     # Create a map centered roughly on your data
