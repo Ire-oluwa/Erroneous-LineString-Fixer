@@ -133,6 +133,11 @@ def filter_non_intersecting_lines(first_data_filepath, second_data_filepath, api
     # Extract street name
     gdf_diff["name"] = gdf_diff["name"].fillna(gdf_diff["address"].apply(extract_street_name))
 
+    # drop unncessary columns
+    # drop multiple non-geometry columns safely
+    cols_to_drop = ["centroid", "address"]  # replace with your unwanted columns
+    gdf_diff = gdf_diff.drop(columns=cols_to_drop, errors="ignore")
+
     # ================== PLOT FINAL DIFFERENCE ==================
     # Create a map centered roughly on your data
     m = leafmap.Map(center=[6.45, 3.39], zoom=9, style="streets")
@@ -144,7 +149,8 @@ def filter_non_intersecting_lines(first_data_filepath, second_data_filepath, api
     style_right = {"color": "red", "weight": 2}
 
     # Add the GeoDataFrames
-    m.add_gdf(gdf_diff, layer_type="line", layer_name="Non-Right-of-Way Roads", style=style_non_right)
+    gdf_plot = gdf_diff.drop(columns=["centroid", "id", "code", "ref", "rid"], errors="ignore")
+    m.add_gdf(gdf_plot, layer_type="line", layer_name="Non-Right-of-Way Roads", style=style_non_right)
 
     # Add right-of-way roads
     m.add_gdf(gdf_1, layer_type="line", layer_name="Right-of-Way Roads", style=style_right)
