@@ -155,6 +155,6 @@ def filter_non_intersecting_lines(first_data_filepath, second_data_filepath, api
     m.add_gdf(gdf_1, layer_type="line", layer_name="Right-of-Way Roads", style=style_right)
 
     # Zoom to fit both datasets
-    m.zoom_to_gdf(pd.concat([gdf_diff, gdf_1]))
+    m.zoom_to_gdf(pd.concat([gdf_plot, gdf_1]))
 
     return {"gdf": gdf_diff, "map": m}
