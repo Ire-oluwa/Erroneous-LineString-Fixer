@@ -149,6 +149,9 @@ def filter_non_intersecting_lines(first_data_filepath, second_data_filepath, api
 
     # Add the GeoDataFrames
     gdf_plot = gdf_diff.drop(columns=["centroid", "id", "code", "ref", "rid"], errors="ignore")
+    gdf_plot = gdf_plot.to_crs(epsg=4326)
+    gdf_1 = gdf_1.to_crs(epsg=4326)
+
     m.add_gdf(gdf_plot, layer_type="line", layer_name="Non-Right-of-Way Roads", style=style_non_right)
 
     # Add right-of-way roads
